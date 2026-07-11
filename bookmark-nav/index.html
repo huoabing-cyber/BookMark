@@ -1,0 +1,2224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔖 书签导航站</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root, [data-theme="light"] {
+      --bg: #f0f2f8;
+      --surface: #ffffff;
+      --card: #ffffff;
+      --card-hover: #f5f7ff;
+      --border: #dde1ed;
+      --primary: #7c6aff;
+      --primary-glow: rgba(124, 106, 255, 0.2);
+      --accent: #00d4aa;
+      --text: #1a1a2e;
+      --text-secondary: #6b6b8a;
+      --text-muted: #9999b8;
+      --danger: #e53e3e;
+      --danger-glow: rgba(229, 62, 62, 0.15);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    [data-theme="dark"] {
+      --bg: #0d0d12;
+      --surface: #16161f;
+      --card: #1e1e2a;
+      --card-hover: #242435;
+      --border: #2a2a3a;
+      --primary: #7c6aff;
+      --primary-glow: rgba(124, 106, 255, 0.25);
+      --accent: #00d4aa;
+      --text: #e8e8f0;
+      --text-secondary: #8888a0;
+      --text-muted: #55556a;
+      --danger: #ff5c5c;
+      --danger-glow: rgba(255, 92, 92, 0.2);
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,106,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    ::selection { background: var(--primary); color: #fff; }
+
+    /* ── Top-left Menu ── */
+    .top-menu { position: fixed; top: 14px; left: 16px; z-index: 200; }
+    .top-menu-btn { width: 36px; height: 36px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); transition: all .15s; position: relative; }
+    .top-menu-btn:hover { background: var(--card); color: var(--text); border-color: var(--text-muted); }
+    .top-menu-dropdown { position: absolute; top: calc(100% + 6px); left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 170px; box-shadow: var(--shadow); overflow: hidden; display: none; animation: fadeIn .15s ease; }
+    .top-menu-dropdown.open { display: block; }
+    .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: .85rem; color: var(--text-secondary); cursor: pointer; transition: all .15s; border: none; background: none; width: 100%; text-align: left; font-family: var(--font-body); }
+    .dropdown-item:hover { background: var(--card); color: var(--text); }
+    .dropdown-item.active { color: var(--primary); }
+    .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+    #importInput { display: none; }
+
+    /* ── Vertical layout ── */
+    .layout-vertical .tagbar { position: fixed; top: 64px; left: 0; bottom: 0; width: 200px; border-bottom: none; border-right: 1px solid var(--border); padding: 16px 12px; z-index: 80; overflow-y: auto; display: flex; flex-direction: column; }
+    .layout-vertical .tagbar-inner { flex-direction: column; align-items: stretch; height: auto; overflow-x: visible; gap: 4px; }
+    .layout-vertical .tag-chip { justify-content: flex-start; padding: 8px 12px; width: 100%; }
+    .layout-vertical .main { margin-left: 200px; }
+
+    /* ── Name suggestion ── */
+    .name-suggestion { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .suggestion-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; font-size: .75rem; font-family: var(--font-mono); cursor: pointer; border: 1px solid var(--accent); color: var(--accent); background: rgba(0,212,170,.08); transition: all .15s; }
+    .suggestion-tag:hover { background: rgba(0,212,170,.18); }
+    .suggestion-tag.used { border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: default; }
+    .suggestion-loading { font-size: .72rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+    .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 20px; font-size: .875rem; color: var(--text); box-shadow: var(--shadow); z-index: 2000; display: flex; align-items: center; gap: 8px; animation: slideUp .2s ease-out; }
+    .toast.success { border-color: var(--accent); color: var(--accent); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* ── Header ── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,13,18,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+
+    .header-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .left-menu { position: relative; flex-shrink: 0; }
+
+    .menu-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .menu-btn:hover, .menu-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--text-muted);
+    }
+
+    .menu-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      min-width: 200px;
+      box-shadow: var(--shadow);
+      z-index: 200;
+      overflow: hidden;
+      display: none;
+      animation: fadeIn 0.15s ease;
+    }
+
+    .menu-dropdown.open { display: block; }
+
+    .menu-section-label {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 10px 14px 6px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .menu-item:hover { background: var(--card); color: var(--text); }
+
+    .menu-item i { flex-shrink: 0; }
+
+    .menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+    .menu-item.active-dir { color: var(--primary); }
+    .menu-item.active-dir:hover { background: rgba(124,106,255,0.1); color: var(--primary); }
+
+    /* ── Logo ── */
+    .logo {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1rem;
+    }
+
+    .search-wrap {
+      flex: 1;
+      max-width: 480px;
+      position: relative;
+    }
+
+    .search-wrap input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px 8px 36px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-wrap input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .search-wrap input::placeholder { color: var(--text-muted); }
+
+    .search-wrap .si {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .header-actions { display: flex; gap: 8px; margin-left: auto; }
+    .theme-btn { width: 36px; height: 36px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
+    .theme-btn:hover { background: var(--card); color: var(--text); border-color: var(--text-muted); }
+    .offline-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #6a58ef;
+      box-shadow: 0 4px 16px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--text-muted);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--danger-glow);
+    }
+
+    /* ── Tag Bar ── */
+    .tagbar {
+      position: sticky;
+      top: 64px;
+      z-index: 90;
+      background: rgba(13,13,18,0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+
+    .tagbar-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 52px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .tagbar-inner::-webkit-scrollbar { display: none; }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+    }
+
+    .tag-chip:hover { background: var(--surface); border-color: var(--border); }
+
+    .tag-chip.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 2px 12px var(--primary-glow);
+    }
+
+    .tag-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .tag-add-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-left: 4px;
+      cursor: pointer;
+      line-height: 1;
+      transition: background 0.15s;
+      flex-shrink: 0;
+      border: none;
+    }
+
+    .tag-add-btn:hover {
+      background: #00b894;
+    }
+
+    .tag-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+    }
+
+    .tag-suggestion-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      background: var(--surface);
+      transition: all 0.15s;
+    }
+
+    .tag-suggestion-chip:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--primary-glow);
+    }
+
+
+
+    /* ── Main ── */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .bookmark-count {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(var(--grid-cols, 5), 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      cursor: pointer;
+      transition: all 0.2s ease-out;
+      position: relative;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: fadeUp 0.4s ease-out both;
+      min-height: 120px;
+      max-height: 120px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      background: var(--card-hover);
+      border-color: var(--primary);
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px var(--primary-glow);
+    }
+
+    .card.dragging {
+      opacity: 0.5;
+      transform: scale(0.95);
+    }
+
+    .card.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .card-link {
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .card-favicon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--surface);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .card-favicon img {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+    }
+
+    .card-info { flex: 1; min-width: 0; }
+
+    .card-name {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text);
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-url {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .card-desc {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: auto;
+    }
+
+    .card-tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(124,106,255,0.12);
+      color: var(--primary);
+      border: 1px solid rgba(124,106,255,0.2);
+    }
+
+    .card-actions {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .card:hover .card-actions { opacity: 1; }
+
+    .card-action-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .card-action-btn:hover {
+      background: var(--card-hover);
+      color: var(--text);
+      border-color: var(--text-muted);
+    }
+
+    .card-action-btn.delete:hover {
+      background: rgba(255,92,92,0.15);
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    /* ── Empty State ── */
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      animation: fadeUp 0.4s ease-out;
+    }
+
+    .empty-illustration {
+      font-size: 4rem;
+      margin-bottom: 16px;
+      display: block;
+      filter: grayscale(0.3);
+    }
+
+    .empty-title {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .empty-desc {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 480px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      animation: slideUp 0.25s ease-out;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .modal-close:hover { background: var(--card); color: var(--text); }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      font-family: var(--font-mono);
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .form-input::placeholder { color: var(--text-muted); }
+
+    textarea.form-input {
+      resize: vertical;
+      min-height: 72px;
+      font-family: var(--font-body);
+    }
+
+    .form-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .form-error {
+      font-size: 0.72rem;
+      color: var(--danger);
+      margin-top: 4px;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: 28px;
+      justify-content: flex-end;
+    }
+
+    .modal-footer .btn-danger {
+      margin-right: auto;
+    }
+
+    /* ── Confirm ── */
+    .confirm-msg {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      text-align: center;
+      margin: 12px 0 24px;
+      line-height: 1.6;
+    }
+
+    /* ── Suggestion bar ── */
+    .suggestion-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(0,212,170,0.07);
+      border: 1px solid rgba(0,212,170,0.2);
+      border-radius: var(--radius-sm);
+      margin-top: 6px;
+    }
+
+    .suggestion-bar.fetching {
+      background: rgba(124,106,255,0.06);
+      border-color: rgba(124,106,255,0.15);
+    }
+
+    .suggestion-bar.error {
+      background: rgba(255,92,92,0.06);
+      border-color: rgba(255,92,92,0.2);
+    }
+
+    .suggestion-icon { flex-shrink: 0; color: var(--accent); }
+    .suggestion-bar.fetching .suggestion-icon { color: var(--primary); }
+    .suggestion-bar.error .suggestion-icon { color: var(--danger); }
+
+    .suggestion-text {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .suggestion-src {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .suggestion-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-weight: 600;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .suggestion-btn:hover { background: #00bfa0; }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Vertical layout (sidebar) ── */
+    body.layout-vertical .tagbar {
+      position: fixed;
+      top: 64px;
+      left: 0;
+      bottom: 0;
+      width: 200px;
+      height: auto;
+      border-bottom: none;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      z-index: 80;
+      background: rgba(13,13,18,0.96);
+      padding: 16px 12px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    body.layout-vertical .tagbar-inner {
+      flex-direction: column;
+      align-items: stretch;
+      height: auto;
+      overflow-x: visible;
+      gap: 4px;
+    }
+
+    body.layout-vertical .tag-chip {
+      white-space: normal;
+      border-radius: var(--radius-sm);
+    }
+
+    body.layout-vertical .main {
+      padding-left: 220px;
+      margin-right: 0;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+      .grid { grid-template-columns: repeat(4, 1fr); }
+      :root { --grid-cols: 4; }
+    }
+
+    @media (max-width: 768px) {
+      .header-inner { height: 56px; }
+      .tagbar { top: 56px; }
+      .grid { grid-template-columns: repeat(3, 1fr); }
+      :root { --grid-cols: 3; }
+      .main { padding: 20px 16px; }
+      .logo { font-size: 1rem; }
+      .search-wrap { max-width: none; }
+      body.layout-vertical .tagbar { top: 56px; width: 160px; }
+      body.layout-vertical .main { padding-left: 176px; }
+      body.layout-vertical .grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr; }
+      :root { --grid-cols: 1; }
+      .header-actions .btn span { display: none; }
+      body.layout-vertical .tagbar { width: 140px; }
+      body.layout-vertical .main { padding-left: 156px; }
+    }
+
+    /* ── Auth ── */
+    .auth-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .auth-tab { flex: 1; padding: 12px; text-align: center; font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; color: var(--text-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .auth-tab:hover { color: var(--text); }
+    .auth-tab.active-tab { color: var(--primary); border-bottom-color: var(--primary); }
+    .auth-form { display: none; }
+    .auth-form.active-form { display: block; }
+    .user-info { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-secondary); }
+    .logout-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center; transition: color 0.15s; }
+    .logout-btn:hover { color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <!-- Left menu -->
+    <div class="left-menu">
+      <button class="menu-btn" id="menuBtn" title="菜单" onclick="toggleMenu()">
+        <i data-lucide="menu" style="width:18px;height:18px;"></i>
+      </button>
+      <div class="menu-dropdown" id="menuDropdown">
+        <div class="menu-section-label">显示方向</div>
+        <button class="menu-item active-dir" id="dirH" onclick="setLayout('horizontal')">
+          <i data-lucide="rows" style="width:15px;height:15px;"></i> 横向排列
+        </button>
+        <button class="menu-item" id="dirV" onclick="setLayout('vertical')">
+          <i data-lucide="columns" style="width:15px;height:15px;"></i> 纵向排列
+        </button>
+        <div class="menu-divider"></div>
+        <div class="menu-section-label">数据管理</div>
+        <button class="menu-item" id="menuOfflineMode" onclick="toggleOfflineMode()">
+          <i data-lucide="cloud-off" style="width:15px;height:15px;"></i> 切换到离线模式
+        </button>
+        <button class="menu-item" onclick="exportBookmarks()">
+          <i data-lucide="download" style="width:15px;height:15px;"></i> 导出书签
+        </button>
+        <button class="menu-item" onclick="document.getElementById('importFile').click()">
+          <i data-lucide="upload" style="width:15px;height:15px;"></i> 导入书签
+        </button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBookmarks(this)">
+        <div class="menu-divider"></div>
+        <div class="menu-section-label">关于</div>
+        <button class="menu-item" onclick="closeMenu()">
+          <i data-lucide="info" style="width:15px;height:15px;"></i> 书签导航站 v1.0
+        </button>
+      </div>
+    </div>
+
+    <a href="#" class="logo" onclick="location.reload()">
+      <div class="logo-icon">🔖</div>
+      <span>书签导航站</span>
+    </a>
+    <div class="search-wrap">
+      <i data-lucide="search" class="si" style="width:16px;height:16px;"></i>
+      <input type="text" id="searchInput" placeholder="搜索书签名称、URL、描述或标签..." autocomplete="off">
+    </div>
+    <div class="header-actions">
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">
+        <i data-lucide="sun" style="width:16px;height:16px;" id="themeIcon"></i>
+      </button>
+      <span class="offline-badge" id="offlineBadge" style="display:none;" title="离线模式 - 数据存储在本地">
+        <i data-lucide="cloud-off" style="width:14px;height:14px;"></i>
+        <span>离线</span>
+      </span>
+      <button class="btn btn-ghost" id="loginBtn" onclick="showAuthModal()" style="display:none;">
+        <i data-lucide="log-in" style="width:15px;height:15px;"></i>
+        <span>登录</span>
+      </button>
+      <div class="user-info" id="userInfo" style="display:none;">
+        <span id="userEmail" style="font-size:0.8rem;"></span>
+        <button class="logout-btn" onclick="logout()" title="退出登录">
+          <i data-lucide="log-out" style="width:15px;height:15px;"></i>
+        </button>
+      </div>
+      <button class="btn btn-primary" id="addBtn" onclick="openAddModal()" style="display:none;">
+        <i data-lucide="plus" style="width:15px;height:15px;"></i>
+        <span>添加书签</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Tag Bar -->
+<div class="tagbar">
+  <div class="tagbar-inner" id="tagBar"></div>
+</div>
+
+
+
+<!-- Main Content -->
+<main class="main">
+  <div class="section-header">
+    <span class="section-title" id="sectionTitle">全部书签</span>
+    <span class="bookmark-count" id="bookmarkCount"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <span class="empty-illustration">🔖📂</span>
+    <h2 class="empty-title" id="emptyTitle">还没有书签</h2>
+    <p class="empty-desc" id="emptyDesc">点击右上角「添加书签」开始你的导航站</p>
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <i data-lucide="plus" style="width:15px;height:15px;"></i>
+      添加第一个书签
+    </button>
+  </div>
+</main>
+
+<!-- Auth Modal -->
+<div class="modal-overlay" id="authModal" style="display:none;" onclick="if(event.target===this)closeAuthModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title" id="authModalTitle">登录 / 注册</h2>
+      <button class="modal-close" onclick="closeAuthModal()">
+        <i data-lucide="x" style="width:16px;height:16px;"></i>
+      </button>
+    </div>
+    <div class="auth-tabs" id="authTabs">
+      <button class="auth-tab active-tab" data-tab="login" onclick="switchAuthTab('login')">登录</button>
+      <button class="auth-tab" data-tab="register" onclick="switchAuthTab('register')">注册</button>
+    </div>
+    <form id="loginForm" class="auth-form active-form" onsubmit="handleAuthSubmit(event)">
+      <div class="form-group">
+        <label class="form-label">用户名 / 邮箱</label>
+        <input class="form-input" id="authEmail" type="text" placeholder="username 或 your@email.com" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">密码</label>
+        <input class="form-input" id="authPassword" type="password" placeholder="••••••••" required>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <input type="checkbox" id="rememberMe" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);">
+        <label for="rememberMe" style="font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">记住账号密码</label>
+      </div>
+      <div class="form-error" id="authError"></div>
+      <div class="modal-footer" style="margin-top:0;">
+        <button type="submit" class="btn btn-primary" style="width:100%;">登录</button>
+      </div>
+    </form>
+    <form id="registerForm" class="auth-form" onsubmit="handleAuthSubmit(event)">
+      <div class="form-group">
+        <label class="form-label">用户名（可选）</label>
+        <input class="form-input" id="authUsernameReg" type="text" placeholder="字母、数字、下划线">
+      </div>
+      <div class="form-group">
+        <label class="form-label">邮箱</label>
+        <input class="form-input" id="authEmailReg" type="email" placeholder="your@email.com" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">密码（至少6位）</label>
+        <input class="form-input" id="authPasswordReg" type="password" placeholder="••••••••" required minlength="6">
+      </div>
+      <div class="form-group">
+        <label class="form-label">确认密码</label>
+        <input class="form-input" id="authPasswordConfirm" type="password" placeholder="••••••••" required>
+      </div>
+      <div class="form-error" id="authErrorReg"></div>
+      <div class="modal-footer" style="margin-top:16px;">
+        <button type="submit" class="btn btn-primary" style="width:100%;">注册</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="handleOverlayClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalTitle">添加书签</h2>
+      <button class="modal-close" onclick="closeModal()">
+        <i data-lucide="x" style="width:16px;height:16px;"></i>
+      </button>
+    </div>
+
+    <!-- Confirm delete -->
+    <div id="confirmDelete" style="display:none;">
+      <p class="confirm-msg">确定要删除「<strong id="deleteName"></strong>」吗？<br>此操作不可撤销。</p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+      </div>
+    </div>
+
+    <!-- Bookmark form -->
+    <form id="bookmarkForm" onsubmit="handleSubmit(event)">
+      <div class="form-group">
+        <label class="form-label">网址 URL *</label>
+        <input class="form-input" id="fUrl" type="url" placeholder="https://example.com" required onblur="onUrlBlur()">
+        <p class="form-hint">必填，自动补全 https://，移出输入框后自动提取网页信息</p>
+        <p class="form-error" id="urlError"></p>
+        <div id="suggestionArea"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">名称 *</label>
+        <input class="form-input" id="fName" type="text" placeholder="网站名称" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">描述</label>
+        <textarea class="form-input" id="fDesc" placeholder="简短描述这个网站（可选）"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">标签</label>
+        <input class="form-input" id="fTags" type="text" placeholder="选品工具, 数据分析, 运营" oninput="renderTagSuggestions()">
+        <p class="form-hint">多个标签用逗号分隔，可直接点击已有标签</p>
+        <div id="tagSuggestions" class="tag-suggestions"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="deleteBtn" style="display:none;" onclick="showDeleteConfirm()">
+          <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+          删除
+        </button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── API & Auth State ──────────────────────────────────────
+// 同源部署：API 与前端由同一个 Express 服务（默认 8080）提供
+const API_BASE = (() => {
+  // 允许通过 <meta name="api-base"> 覆盖，便于把前端单独部署时切到独立后端
+  const meta = document.querySelector('meta[name="api-base"]');
+  if (meta && meta.content) return meta.content.replace(/\/$/, '');
+  return '/api';
+})();
+const TOKEN_KEY = 'bookmark_nav_token';
+const OFFLINE_MODE_KEY = 'bookmark_nav_offline_mode';
+const OFFLINE_BOOKMARKS_KEY = 'bookmark_nav_offline_bookmarks';
+let authToken = localStorage.getItem(TOKEN_KEY) || null;
+let currentUser = null;
+let isLoggedIn = false;
+let isOfflineMode = localStorage.getItem(OFFLINE_MODE_KEY) === '1';
+
+// ── Legacy State ───────────────────────────────────────────
+const STORAGE_KEY = 'bookmark_nav_v1';
+const LAYOUT_KEY  = 'bookmark_nav_layout_v1';
+const THEME_KEY   = 'bookmark_nav_theme_v1';
+const TAG_COLORS  = ['#7c6aff','#00d4aa','#ff6b9d','#ffa726','#29b6f6','#66bb6a','#f06292','#81c784','#64b5f6','#ffb74d'];
+
+let bookmarks     = [];
+let allTags      = [];
+let activeTag    = '全部';
+let editingId    = null;
+let searchQuery  = '';
+let currentLayout = localStorage.getItem(LAYOUT_KEY) || 'horizontal';
+let currentTheme  = localStorage.getItem(THEME_KEY) || 'dark';
+let suggestAbort  = null;
+let suggestedName = '';
+let presetTag     = '';
+
+// ── API Helper ─────────────────────────────────────────────
+async function api(endpoint, options = {}) {
+  const res = await fetch(API_BASE + endpoint, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken && { 'Authorization': 'Bearer ' + authToken }),
+      ...options.headers
+    }
+  });
+  const data = await res.json().catch(() => ({ error: '响应解析失败' }));
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ── Layout ─────────────────────────────────────────────────
+function applyLayout(layout) {
+  currentLayout = layout;
+  localStorage.setItem(LAYOUT_KEY, layout);
+  if (layout === 'vertical') {
+    document.body.classList.add('layout-vertical');
+    document.documentElement.style.setProperty('--grid-cols', '5');
+  } else {
+    document.body.classList.remove('layout-vertical');
+    // 横向排列空间充足，默认6列（媒体查询会覆盖小屏幕情况）
+    document.documentElement.style.setProperty('--grid-cols', '6');
+  }
+  // update menu active states
+  const dirH = document.getElementById('dirH');
+  const dirV = document.getElementById('dirV');
+  if (dirH) dirH.classList.toggle('active-dir', layout === 'horizontal');
+  if (dirV) dirV.classList.toggle('active-dir', layout === 'vertical');
+}
+
+// ── Menu ───────────────────────────────────────────────────
+function toggleMenu() {
+  const dd = document.getElementById('menuDropdown');
+  dd.classList.toggle('open');
+}
+
+function closeMenu() {
+  const dd = document.getElementById('menuDropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+function setLayout(dir) {
+  applyLayout(dir);
+  closeMenu();
+}
+
+function handleOutsideClick(e) {
+  const menu = document.getElementById('menuBtn');
+  const dd = document.getElementById('menuDropdown');
+  if (menu && dd && !menu.contains(e.target) && !dd.contains(e.target)) {
+    closeMenu();
+  }
+}
+
+// ── Theme ─────────────────────────────────────────────────
+function applyTheme(theme) {
+  currentTheme = theme;
+  localStorage.setItem(THEME_KEY, theme);
+  document.documentElement.setAttribute('data-theme', theme);
+  var icon = document.getElementById('themeIcon');
+  if (icon) {
+    icon.setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
+    lucide.createIcons();
+  }
+}
+
+function toggleTheme() {
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+}
+
+// ── Auth ──────────────────────────────────────────────────
+function showAuthModal() {
+  document.getElementById('authModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  // 预填记住的账号密码
+  if (localStorage.getItem('bookmark_nav_remember') === '1') {
+    const savedEmail = localStorage.getItem('bookmark_nav_email');
+    const savedPwd = localStorage.getItem('bookmark_nav_pwd');
+    if (savedEmail) document.getElementById('authEmail').value = savedEmail;
+    if (savedPwd) document.getElementById('authPassword').value = savedPwd;
+    if (savedEmail && savedPwd) document.getElementById('rememberMe').checked = true;
+  }
+}
+
+function closeAuthModal() {
+  document.getElementById('authModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function checkAuth() {
+  // Offline mode: skip auth, load from localStorage
+  if (isOfflineMode) {
+    await loadBookmarks();
+    updateAuthUI();
+    render();
+    return;
+  }
+  
+  // 尝试从 Cookie 获取 token 作为后备
+  if (!authToken) {
+    const cookies = document.cookie.split(';').reduce((acc, c) => {
+      const [k, v] = c.trim().split('=');
+      acc[k] = v;
+      return acc;
+    }, {});
+    if (cookies['bookmark_nav_token']) {
+      authToken = cookies['bookmark_nav_token'];
+      localStorage.setItem(TOKEN_KEY, authToken);
+    }
+  }
+  
+  if (authToken) {
+    try {
+      const data = await api('/auth/me');
+      isLoggedIn = true;
+      currentUser = data.user;
+      updateAuthUI();
+      await loadBookmarks();
+      render();
+    } catch (e) {
+      localStorage.removeItem(TOKEN_KEY);
+      authToken = null;
+      isLoggedIn = false;
+      tryAutoLogin();
+    }
+  } else {
+    tryAutoLogin();
+  }
+}
+
+async function tryAutoLogin() {
+  if (localStorage.getItem('bookmark_nav_remember') === '1') {
+    const savedEmail = localStorage.getItem('bookmark_nav_email');
+    const savedPwd = localStorage.getItem('bookmark_nav_pwd');
+    if (savedEmail && savedPwd) {
+      try {
+        const data = await api('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: savedEmail, password: savedPwd })
+        });
+        authToken = data.token;
+        currentUser = data.user;
+        isLoggedIn = true;
+        localStorage.setItem(TOKEN_KEY, authToken);
+        updateAuthUI();
+        await loadBookmarks();
+        render();
+        showToast('欢迎回来', 'success');
+        return;
+      } catch (e) {
+        // 自动登录失败，清除记住的密码
+        localStorage.removeItem('bookmark_nav_remember');
+        localStorage.removeItem('bookmark_nav_email');
+        localStorage.removeItem('bookmark_nav_pwd');
+      }
+    }
+  }
+  showAuthModal();
+}
+
+function updateAuthUI() {
+  const loginBtn = document.getElementById('loginBtn');
+  const userInfo = document.getElementById('userInfo');
+  const addBtn = document.getElementById('addBtn');
+  const offlineBadge = document.getElementById('offlineBadge');
+  const menuOfflineMode = document.getElementById('menuOfflineMode');
+  
+  if (isOfflineMode) {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (userInfo) userInfo.style.display = 'none';
+    if (addBtn) addBtn.style.display = 'inline-flex';
+    if (offlineBadge) offlineBadge.style.display = 'inline-flex';
+    if (menuOfflineMode) {
+      menuOfflineMode.innerHTML = '<i data-lucide="wifi-off" style="width:15px;height:15px;"></i> 切换到在线模式';
+    }
+    lucide.createIcons();
+    return;
+  }
+  
+  if (offlineBadge) offlineBadge.style.display = 'none';
+  if (menuOfflineMode) {
+    menuOfflineMode.innerHTML = '<i data-lucide="cloud-off" style="width:15px;height:15px;"></i> 切换到离线模式';
+    lucide.createIcons();
+  }
+  
+  if (isLoggedIn && currentUser) {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (userInfo) {
+      userInfo.style.display = 'flex';
+      const emailEl = document.getElementById('userEmail');
+      if (emailEl) emailEl.textContent = currentUser.email;
+    }
+    if (addBtn) addBtn.style.display = 'inline-flex';
+  } else {
+    if (loginBtn) loginBtn.style.display = 'inline-flex';
+    if (userInfo) userInfo.style.display = 'none';
+    if (addBtn) addBtn.style.display = 'none';
+  }
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const isLogin = document.getElementById('authTabs').querySelector('.active-tab')?.dataset.tab === 'login';
+  let email, password, errorEl;
+  if (isLogin) {
+    email = document.getElementById('authEmail').value.trim();
+    password = document.getElementById('authPassword').value;
+    errorEl = document.getElementById('authError');
+  } else {
+    email = document.getElementById('authEmailReg').value.trim();
+    password = document.getElementById('authPasswordReg').value;
+    errorEl = document.getElementById('authErrorReg');
+  }
+  errorEl.textContent = '';
+
+  // 注册时校验两次密码一致
+  if (!isLogin) {
+    const confirmPwd = document.getElementById('authPasswordConfirm').value;
+    if (password !== confirmPwd) {
+      errorEl.textContent = '两次输入的密码不一致';
+      return;
+    }
+  }
+
+  try {
+    const endpoint = isLogin ? '/auth/login' : '/auth/register';
+    const payload = isLogin 
+      ? { email, password }
+      : { 
+          email, 
+          password, 
+          username: document.getElementById('authUsernameReg')?.value.trim() || null 
+        };
+    const data = await api(endpoint, {
+      method: 'POST',
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+    authToken = data.token;
+    currentUser = data.user;
+    isLoggedIn = true;
+    localStorage.setItem(TOKEN_KEY, authToken);
+    
+    // 同时存储到 Cookie
+    document.cookie = `bookmark_nav_token=${authToken}; path=/; max-age=${7*24*60*60}; samesite=lax`;
+    document.cookie = `bookmark_nav_user=${JSON.stringify({id: currentUser.id, email: currentUser.email, username: currentUser.username})}; path=/; max-age=${7*24*60*60}; samesite=lax`;
+
+    // 记住密码
+    if (isLogin && document.getElementById('rememberMe').checked) {
+      localStorage.setItem('bookmark_nav_remember', '1');
+      localStorage.setItem('bookmark_nav_email', email);
+      localStorage.setItem('bookmark_nav_pwd', password);
+    } else if (isLogin && !document.getElementById('rememberMe').checked) {
+      localStorage.removeItem('bookmark_nav_remember');
+      localStorage.removeItem('bookmark_nav_email');
+      localStorage.removeItem('bookmark_nav_pwd');
+    }
+
+    closeAuthModal();
+    updateAuthUI();
+    await loadBookmarks();
+    render();
+    showToast(isLogin ? '登录成功' : '注册成功', 'success');
+  } catch (e) {
+    errorEl.textContent = e.message;
+  }
+}
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active-tab'));
+  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active-form'));
+  document.querySelector(`.auth-tab[data-tab="${tab}"]`).classList.add('active-tab');
+  document.getElementById(tab + 'Form').classList.add('active-form');
+  // 清理两个表单的错误提示
+  document.getElementById('authError').textContent = '';
+  const regErr = document.getElementById('authErrorReg');
+  if (regErr) regErr.textContent = '';
+}
+
+function toggleOfflineMode() {
+  isOfflineMode = !isOfflineMode;
+  localStorage.setItem(OFFLINE_MODE_KEY, isOfflineMode ? '1' : '0');
+  if (isOfflineMode) {
+    // Switching to offline mode
+    authToken = null;
+    currentUser = null;
+    isLoggedIn = false;
+    localStorage.removeItem(TOKEN_KEY);
+    closeMenu();
+  } else {
+    // Switching to online mode - clear offline bookmarks from memory
+    bookmarks = [];
+    allTags = [];
+    closeMenu();
+  }
+  checkAuth();
+  showToast(isOfflineMode ? '已切换到离线模式' : '已切换到在线模式', 'success');
+}
+
+async function logout() {
+  authToken = null;
+  currentUser = null;
+  isLoggedIn = false;
+  bookmarks = [];
+  allTags = [];
+  localStorage.removeItem(TOKEN_KEY);
+  // 清除 Cookie
+  document.cookie = 'bookmark_nav_token=; path=/; max-age=0';
+  document.cookie = 'bookmark_nav_user=; path=/; max-age=0';
+  updateAuthUI();
+  render();
+  showAuthModal();
+}
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  applyLayout(currentLayout);
+  applyTheme(currentTheme);
+  lucide.createIcons();
+  await checkAuth();
+  document.addEventListener('click', handleOutsideClick);
+  // Listen for storage changes from other tabs/windows
+  window.addEventListener('storage', function(e) {
+    if (e.key === STORAGE_KEY || e.key === LAYOUT_KEY || e.key === THEME_KEY) {
+      if (e.key === STORAGE_KEY) {
+        loadBookmarks();
+      }
+      if (e.key === LAYOUT_KEY) {
+        currentLayout = localStorage.getItem(LAYOUT_KEY) || 'horizontal';
+        applyLayout(currentLayout);
+      }
+      if (e.key === THEME_KEY) {
+        currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+        applyTheme(currentTheme);
+      }
+    }
+  });
+}
+
+// ── Storage (API-based) ─────────────────────────────────────
+// Convert API format (description) to local format (desc)
+function fromApiBookmark(b) {
+  return {
+    id: b.id,
+    url: b.url,
+    name: b.name,
+    desc: b.description || '',
+    tags: Array.isArray(b.tags) ? b.tags : []
+  };
+}
+
+// Convert local format (desc) to API format (description)
+function toApiBookmark(b) {
+  return {
+    url: b.url,
+    name: b.name,
+    description: b.desc || '',
+    tags: Array.isArray(b.tags) ? b.tags : []
+  };
+}
+
+async function loadBookmarks() {
+  // Offline mode: load from localStorage
+  if (isOfflineMode) {
+    try {
+      const stored = localStorage.getItem(OFFLINE_BOOKMARKS_KEY);
+      bookmarks = stored ? JSON.parse(stored) : [];
+      buildTagList();
+    } catch (e) {
+      bookmarks = [];
+      allTags = [];
+    }
+    return;
+  }
+  
+  if (!isLoggedIn) { bookmarks = []; allTags = []; return; }
+  try {
+    const data = await api('/bookmarks');
+    bookmarks = (data.bookmarks || []).map(fromApiBookmark);
+    buildTagList();
+  } catch (e) {
+    bookmarks = [];
+    allTags = [];
+    showToast('加载书签失败', 'error');
+  }
+}
+
+async function saveBookmark(b) {
+  // Called after add/update to sync local state
+  buildTagList();
+}
+
+function buildTagList() {
+  const tagSet = new Set();
+  bookmarks.forEach(b => {
+    if (b.tags) b.tags.forEach(t => tagSet.add(t.trim()));
+  });
+  allTags = [...tagSet].sort();
+}
+
+// ── Render ────────────────────────────────────────────────
+function render() {
+  renderTagBar();
+  renderGrid();
+}
+
+function colorWithAlpha(hex, alpha) {
+  var r = parseInt(hex.slice(1,3), 16);
+  var g = parseInt(hex.slice(3,5), 16);
+  var b = parseInt(hex.slice(5,7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+function getTagColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
+function getFavicon(url) {
+  try {
+    const domain = new URL(url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+  } catch {
+    return '';
+  }
+}
+
+function filteredBookmarks() {
+  let list = bookmarks;
+  if (activeTag !== '全部') {
+    if (activeTag === '其它') {
+      list = list.filter(b => !b.tags || b.tags.length === 0 || b.tags.every(t => !t || !t.trim()));
+    } else {
+      list = list.filter(b => b.tags && b.tags.includes(activeTag));
+    }
+  }
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    list = list.filter(b =>
+      b.name.toLowerCase().includes(q) ||
+      (b.url && b.url.toLowerCase().includes(q)) ||
+      (b.desc && b.desc.toLowerCase().includes(q)) ||
+      (b.tags && b.tags.some(t => t.toLowerCase().includes(q)))
+    );
+  }
+  return list;
+}
+
+function renderTagBar() {
+  const container = document.getElementById('tagBar');
+  const untaggedCount = bookmarks.filter(b => !b.tags || b.tags.length === 0 || b.tags.every(t => !t || !t.trim())).length;
+  const items = ['全部', ...allTags];
+  if (untaggedCount > 0) {
+    items.push('其它');
+  }
+  container.innerHTML = items.map(tag => {
+    const color = tag === '全部' ? 'var(--primary)' : (tag === '其它' ? 'var(--text-muted)' : getTagColor(tag));
+    const active = tag === activeTag;
+    let count;
+    if (tag === '全部') {
+      count = bookmarks.length;
+    } else if (tag === '其它') {
+      count = untaggedCount;
+    } else {
+      count = bookmarks.filter(b => b.tags && b.tags.includes(tag)).length;
+    }
+    const addBtn = (active && tag !== '全部' && tag !== '其它')
+      ? `<span class="tag-add-btn" onclick="event.stopPropagation();openAddModalWithTag('${escapeHtml(tag)}')" title="添加此标签的书签">+</span>`
+      : '';
+    return `
+      <button class="tag-chip ${active ? 'active' : ''}" onclick="setTag('${escapeHtml(tag)}')">
+        ${tag !== '全部' ? `<span class="tag-dot" style="background:${color};"></span>` : ''}
+        ${escapeHtml(tag)}
+        ${tag !== '全部' ? `<span style="opacity:.6;font-size:.7rem;">(${count})</span>` : ''}
+        ${addBtn}
+      </button>
+    `;
+  }).join('');
+  lucide.createIcons();
+}
+
+function renderGrid() {
+  const list = filteredBookmarks();
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('emptyState');
+  const sectionTitle = document.getElementById('sectionTitle');
+  const bookmarkCount = document.getElementById('bookmarkCount');
+
+  const displayName = activeTag === '全部' ? '全部书签' : `🔖 ${activeTag}`;
+  sectionTitle.textContent = displayName;
+  bookmarkCount.textContent = `${list.length} 个书签`;
+
+  if (list.length === 0) {
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    if (searchQuery) {
+      document.getElementById('emptyTitle').textContent = '没有找到书签';
+      document.getElementById('emptyDesc').textContent = '换个关键词试试';
+    } else if (activeTag === '其它') {
+      document.getElementById('emptyTitle').textContent = '暂无未分类书签';
+      document.getElementById('emptyDesc').textContent = '所有书签都已添加标签';
+    } else if (activeTag !== '全部') {
+      document.getElementById('emptyTitle').textContent = `「${activeTag}」下暂无书签`;
+      document.getElementById('emptyDesc').textContent = '添加书签时给它打上这个标签';
+    } else {
+      document.getElementById('emptyTitle').textContent = '还没有书签';
+      document.getElementById('emptyDesc').textContent = '点击右上角「添加书签」开始你的导航站';
+    }
+    return;
+  }
+
+  empty.style.display = 'none';
+  grid.style.display = 'grid';
+
+  // Always show a single flat grid
+  grid.innerHTML = list.map((b, i) => buildCardHtml(b, i)).join('');
+
+  lucide.createIcons();
+}
+
+function buildCardHtml(b, i) {
+  const tagsHtml = (b.tags || []).map(t =>
+    `<span class="card-tag" style="background:${getTagColor(t)}22;color:${getTagColor(t)};border-color:${getTagColor(t)}44;">${escapeHtml(t)}</span>`
+  ).join('');
+
+  return `
+    <div class="card" draggable="true" data-id="${b.id}" data-index="${i}"
+         ondragstart="onDragStart(event)"
+         ondragend="onDragEnd(event)"
+         ondragover="onDragOver(event)"
+         ondrop="onDrop(event)"
+         ondragleave="onDragLeave(event)"
+         style="animation-delay:${Math.min(i * 40, 400)}ms;">
+      <div class="card-actions" onclick="event.preventDefault();event.stopPropagation();">
+        <button class="card-action-btn" title="拖拽调整顺序" style="cursor:grab;">
+          <i data-lucide="move" style="width:13px;height:13px;"></i>
+        </button>
+        <button class="card-action-btn" title="编辑" onclick="event.preventDefault();event.stopPropagation();openEditModal('${b.id}')">
+          <i data-lucide="pencil" style="width:13px;height:13px;"></i>
+        </button>
+        <button class="card-action-btn delete" title="删除" onclick="event.preventDefault();event.stopPropagation();openDeleteConfirm('${b.id}')">
+          <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+        </button>
+      </div>
+      <a href="${escapeHtml(b.url)}" target="_blank" rel="noopener noreferrer" class="card-link">
+        <div class="card-top">
+          <div class="card-favicon">
+            <img src="${getFavicon(b.url)}" alt="" onerror="this.style.display='none'">
+          </div>
+          <div class="card-info">
+            <div class="card-name">${escapeHtml(b.name)}</div>
+            <div class="card-url">${escapeHtml(b.url.replace(/^https?:\/\//, ''))}</div>
+          </div>
+        </div>
+        ${b.desc ? `<p class="card-desc">${escapeHtml(b.desc)}</p>` : ''}
+        ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
+      </a>
+    </div>
+  `;
+}
+
+// ── Tag filter ────────────────────────────────────────────
+function setTag(tag) {
+  activeTag = tag;
+  render();
+}
+
+// ── Drag & Drop Reorder ───────────────────────────────────
+let draggedEl = null;
+let draggedId = null;
+
+function onDragStart(e) {
+  draggedEl = e.currentTarget;
+  draggedId = draggedEl.dataset.id;
+  draggedEl.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedId);
+}
+
+function onDragEnd(e) {
+  if (draggedEl) {
+    draggedEl.classList.remove('dragging');
+  }
+  document.querySelectorAll('.card.drag-over').forEach(el => el.classList.remove('drag-over'));
+  draggedEl = null;
+  draggedId = null;
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.currentTarget;
+  if (card !== draggedEl) {
+    card.classList.add('drag-over');
+  }
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  const targetEl = e.currentTarget;
+  targetEl.classList.remove('drag-over');
+  const targetId = targetEl.dataset.id;
+  if (draggedId === targetId) return;
+
+  // Reorder bookmarks array
+  const draggedIdx = bookmarks.findIndex(b => b.id === draggedId);
+  const targetIdx = bookmarks.findIndex(b => b.id === targetId);
+  if (draggedIdx === -1 || targetIdx === -1) return;
+
+  const [draggedItem] = bookmarks.splice(draggedIdx, 1);
+  bookmarks.splice(targetIdx, 0, draggedItem);
+  saveBookmarks();
+  render();
+  showToast('书签顺序已调整', 'success');
+}
+
+// ── Tag Suggestions ───────────────────────────────────────
+function renderTagSuggestions() {
+  var container = document.getElementById('tagSuggestions');
+  if (!container) return;
+  if (allTags.length === 0) { container.innerHTML = ''; return; }
+  var input = document.getElementById('fTags');
+  var current = input.value.split(/[,，]/).map(function(t) { return t.trim(); }).filter(Boolean);
+  container.innerHTML = allTags.map(function(tag) {
+    var selected = current.indexOf(tag) !== -1;
+    var color = getTagColor(tag);
+    var style = selected ? 'border-color:' + color + ';color:' + color + ';background:' + color + '22;' : '';
+    var check = selected ? ' <i data-lucide="check" style="width:10px;height:10px;"></i>' : '';
+    return '<span class="tag-suggestion-chip" onclick="toggleTagSuggestion(\'' + escapeHtml(tag) + '\')" style="' + style + '">' +
+      '<span class="tag-dot" style="background:' + color + ';"></span>' +
+      escapeHtml(tag) + check + '</span>';
+  }).join('');
+  lucide.createIcons();
+}
+
+function toggleTagSuggestion(tag) {
+  var input = document.getElementById('fTags');
+  var parts = input.value.split(/[,，]/).map(function(t) { return t.trim(); }).filter(Boolean);
+  var idx = parts.indexOf(tag);
+  if (idx !== -1) { parts.splice(idx, 1); }
+  else { parts.push(tag); }
+  input.value = parts.join(', ');
+  renderTagSuggestions();
+}
+
+// ── Search ────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', debounce(e => {
+  searchQuery = e.target.value.trim();
+  render();
+}, 200));
+
+// ── Modal ─────────────────────────────────────────────────
+function openAddModal() {
+  editingId = null;
+  presetTag = '';
+  document.getElementById('modalTitle').textContent = '添加书签';
+  document.getElementById('bookmarkForm').style.display = 'block';
+  document.getElementById('confirmDelete').style.display = 'none';
+  document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('submitBtn').textContent = '添加';
+  document.getElementById('bookmarkForm').reset();
+  document.getElementById('urlError').textContent = '';
+  document.getElementById('suggestionArea').innerHTML = '';
+  suggestedName = '';
+  showModal();
+  renderTagSuggestions();
+  lucide.createIcons();
+}
+
+function openAddModalWithTag(tag) {
+  openAddModal();
+  presetTag = tag;
+  document.getElementById('fTags').value = tag;
+  renderTagSuggestions();
+}
+
+function openEditModal(id) {
+  const b = bookmarks.find(b => b.id === id);
+  if (!b) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '编辑书签';
+  document.getElementById('bookmarkForm').style.display = 'block';
+  document.getElementById('confirmDelete').style.display = 'none';
+  document.getElementById('deleteBtn').style.display = 'inline-flex';
+  document.getElementById('submitBtn').textContent = '保存更改';
+  document.getElementById('fUrl').value = b.url || '';
+  document.getElementById('fName').value = b.name || '';
+  document.getElementById('fDesc').value = b.desc || '';
+  document.getElementById('fTags').value = (b.tags || []).join(', ');
+  document.getElementById('urlError').textContent = '';
+  showModal();
+  lucide.createIcons();
+}
+
+function openDeleteConfirm(id) {
+  const b = bookmarks.find(b => b.id === id);
+  if (!b) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '删除书签';
+  document.getElementById('bookmarkForm').style.display = 'none';
+  document.getElementById('confirmDelete').style.display = 'block';
+  document.getElementById('deleteName').textContent = b.name;
+  showModal();
+  lucide.createIcons();
+}
+
+function showDeleteConfirm() {
+  // already showing confirm in this modal mode
+}
+
+function showModal() {
+  document.getElementById('modalOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  if (document.getElementById('fUrl')) document.getElementById('fUrl').focus();
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+  editingId = null;
+}
+
+function handleOverlayClick(e) {
+  if (e.target === e.currentTarget) closeModal();
+}
+
+// ── Toast ──────────────────────────────────────────────────
+function showToast(msg, type) {
+  var old = document.querySelector('.toast');
+  if (old) old.remove();
+  var el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function() { el.remove(); }, 3000);
+}
+
+// ── Import / Export ────────────────────────────────────────
+function exportBookmarks() {
+  if (bookmarks.length === 0) { showToast('没有书签可导出', 'error'); closeMenu(); return; }
+  var blob = new Blob([JSON.stringify(bookmarks, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'bookmarks-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已导出 ' + bookmarks.length + ' 条书签', 'success');
+  closeMenu();
+}
+
+async function importBookmarks(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('格式错误');
+      var existingUrls = {};
+      bookmarks.forEach(function(b) { existingUrls[b.url] = true; });
+      var added = 0;
+      var skipped = 0;
+      for (var item of data) {
+        if (!item.url) continue;
+        // Normalize: support both desc and description fields
+        var desc = item.desc || item.description || '';
+        var tags = Array.isArray(item.tags) ? item.tags : [];
+        if (existingUrls[item.url]) {
+          skipped++;
+          continue;
+        }
+        
+        // Offline mode: add locally
+        if (isOfflineMode) {
+          bookmarks.push({ id: 'offline_' + Date.now() + '_' + added, url: item.url, name: item.name || '', desc: desc, tags: tags });
+          existingUrls[item.url] = true;
+          added++;
+          continue;
+        }
+        
+        try {
+          var apiData = await api('/bookmarks', {
+            method: 'POST',
+            body: JSON.stringify({ url: item.url, name: item.name || '', description: desc, tags: tags })
+          });
+          bookmarks.push(fromApiBookmark(apiData.bookmark));
+          existingUrls[item.url] = true;
+          added++;
+        } catch (e) {
+          skipped++;
+        }
+      }
+      
+      // Save to localStorage in offline mode
+      if (isOfflineMode) {
+        localStorage.setItem(OFFLINE_BOOKMARKS_KEY, JSON.stringify(bookmarks));
+      }
+      
+      buildTagList();
+      render();
+      showToast('成功导入 ' + added + ' 条书签（' + skipped + ' 条重复或失败已跳过）', 'success');
+    } catch (err) {
+      showToast('导入失败：文件格式错误', 'error');
+    }
+    closeMenu();
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ── Web Info Extraction ───────────────────────────────────
+function parseHtmlForMeta(html, url) {
+  var domain = '';
+  try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch (e) {}
+  var name = '';
+  var cleanName = '';
+  var m = null;
+
+  // Priority 1: og:title
+  m = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+  if (!m) m = html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+
+  // Priority 2: og:site_name (site name, use if og:title not found)
+  if (!m) {
+    var sm = html.match(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i);
+    if (!sm) sm = html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:site_name["']/i);
+    if (sm) m = sm;
+  }
+
+  // Priority 3: <title> (any attribute variations including data-rh, data-next-head)
+  if (!m) m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+
+  if (m) {
+    name = m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'").trim();
+    var parts = name.split(/[_\-|\u2013\u2014·\s]+\[|\s*[\/\\|:]/);
+    cleanName = parts.filter(Boolean)[0] || '';
+    if (cleanName.length < 2) cleanName = domain;
+  }
+
+  return { name: (cleanName || domain).substring(0, 60), domain: domain };
+}
+
+async function onUrlBlur() {
+  if (editingId) return;
+  var urlInput = document.getElementById('fUrl');
+  var area = document.getElementById('suggestionArea');
+  if (!urlInput || !area) return;
+  var urlVal = urlInput.value.trim();
+  if (!urlVal) { area.innerHTML = ''; return; }
+  if (!/^https?:\/\//i.test(urlVal)) urlVal = 'https://' + urlVal;
+  try { new URL(urlVal); } catch (e) { area.innerHTML = ''; return; }
+
+  area.innerHTML = '<span class="suggestion-loading"><span class="spinner"></span> 正在提取网站信息...</span>';
+  suggestedName = '';
+
+  if (suggestAbort) suggestAbort.abort();
+  var ctrl = new AbortController();
+  suggestAbort = ctrl;
+
+  var proxyUrls = [
+    function(u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+    function(u) { return 'https://corsproxy.io/?' + encodeURIComponent(u); },
+    function(u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); },
+    function(u) { return 'https://proxy.viigoo.com/?url=' + encodeURIComponent(u); }
+  ];
+
+  try {
+    var html = '';
+    for (var i = 0; i < proxyUrls.length; i++) {
+      try {
+        var r = await fetch(proxyUrls[i](urlVal), { signal: ctrl.signal });
+        if (r && r.ok) { html = await r.text(); if (html && html.length > 100) break; }
+      } catch (e) { continue; }
+    }
+    if (!html || html.length < 100) throw new Error('no valid response');
+    var info = parseHtmlForMeta(html, urlVal);
+    area.innerHTML = '';
+    if (!info.name) return;
+    var suggestions = [];
+    if (info.name && info.name !== info.domain) suggestions.push({ label: '使用网页名称', name: info.name });
+    if (info.domain) suggestions.push({ label: '使用域名', name: info.domain });
+    if (suggestions.length === 0) return;
+    suggestedName = suggestions[0].name;
+    var htmlParts = suggestions.map(function(s, idx) {
+      return '<span class="suggestion-tag' + (idx > 0 ? ' used' : '') + '" onclick="applySuggestion(this, \'' + escapeHtml(s.name) + '\')">' + escapeHtml(s.label) + ': ' + escapeHtml(s.name) + '</span>';
+    });
+    area.innerHTML = '<div class="name-suggestion">' + htmlParts.join('') + '</div>';
+  } catch (err) {
+    if (err.name !== 'AbortError') area.innerHTML = '';
+  }
+}
+
+function applySuggestion(el, name) {
+  if (!name) return;
+  document.getElementById('fName').value = name;
+  suggestedName = name;
+  var tags = document.querySelectorAll('.suggestion-tag');
+  for (var i = 0; i < tags.length; i++) tags[i].classList.add('used');
+}
+
+// ── Form Submit (API-based) ────────────────────────────────
+async function handleSubmit(e) {
+  e.preventDefault();
+  const url = document.getElementById('fUrl').value.trim();
+  const name = document.getElementById('fName').value.trim();
+  const desc = document.getElementById('fDesc').value.trim();
+  const tagsRaw = document.getElementById('fTags').value.trim();
+
+  // Validate URL
+  let finalUrl = url;
+  if (!/^https?:\/\//i.test(finalUrl)) {
+    finalUrl = 'https://' + finalUrl;
+  }
+  try {
+    new URL(finalUrl);
+  } catch {
+    document.getElementById('urlError').textContent = '请输入有效的网址';
+    return;
+  }
+
+  const tags = tagsRaw ? tagsRaw.split(/[,，]/).map(t => t.trim()).filter(Boolean) : [];
+
+  // Offline mode: save locally
+  if (isOfflineMode) {
+    if (editingId) {
+      const idx = bookmarks.findIndex(b => b.id === editingId);
+      if (idx !== -1) {
+        bookmarks[idx] = { id: editingId, url: finalUrl, name, desc, tags };
+      }
+      showToast('更新成功', 'success');
+    } else {
+      bookmarks.push({ id: 'offline_' + Date.now(), url: finalUrl, name, desc, tags });
+      showToast('添加成功', 'success');
+    }
+    localStorage.setItem(OFFLINE_BOOKMARKS_KEY, JSON.stringify(bookmarks));
+    buildTagList();
+    render();
+    closeModal();
+    return;
+  }
+
+  try {
+    if (editingId) {
+      // Update existing
+      const data = await api('/bookmarks/' + editingId, {
+        method: 'PUT',
+        body: JSON.stringify({ url: finalUrl, name, description: desc, tags })
+      });
+      const idx = bookmarks.findIndex(b => b.id === editingId);
+      if (idx !== -1) {
+        bookmarks[idx] = fromApiBookmark(data.bookmark);
+      }
+      showToast('更新成功', 'success');
+    } else {
+      // Add new
+      const data = await api('/bookmarks', {
+        method: 'POST',
+        body: JSON.stringify({ url: finalUrl, name, description: desc, tags })
+      });
+      bookmarks.push(fromApiBookmark(data.bookmark));
+      showToast('添加成功', 'success');
+    }
+    buildTagList();
+    render();
+    closeModal();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function confirmDelete() {
+  if (!editingId) { closeModal(); return; }
+  
+  // Offline mode: delete locally
+  if (isOfflineMode) {
+    bookmarks = bookmarks.filter(b => b.id !== editingId);
+    localStorage.setItem(OFFLINE_BOOKMARKS_KEY, JSON.stringify(bookmarks));
+    buildTagList();
+    render();
+    closeModal();
+    showToast('删除成功', 'success');
+    return;
+  }
+  
+  try {
+    await api('/bookmarks/' + editingId, { method: 'DELETE' });
+    bookmarks = bookmarks.filter(b => b.id !== editingId);
+    buildTagList();
+    render();
+    closeModal();
+    showToast('删除成功', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+// ── Utilities ──────────────────────────────────────────────
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// ── Keyboard ───────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ── Go ────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
