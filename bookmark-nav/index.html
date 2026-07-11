@@ -759,6 +759,51 @@
       font-family: var(--font-body);
     }
 
+    /* ── Password reveal (hold to show) ── */
+    .password-wrap {
+      position: relative;
+    }
+    .password-wrap > .form-input {
+      padding-right: 44px;
+    }
+    .password-reveal {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.15s, background 0.15s, transform 0.1s;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .password-reveal:hover {
+      color: var(--primary);
+      background: var(--card-hover);
+    }
+    .password-reveal:active,
+    .password-reveal.revealing {
+      color: #fff;
+      background: var(--primary);
+      transform: translateY(-50%) scale(0.94);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .password-reveal i {
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
+    }
+
     .form-hint {
       font-size: 0.72rem;
       color: var(--text-muted);
@@ -1070,7 +1115,16 @@
       </div>
       <div class="form-group">
         <label class="form-label">密码</label>
-        <input class="form-input" id="authPassword" type="password" placeholder="••••••••" required>
+        <div class="password-wrap">
+          <input class="form-input" id="authPassword" type="password" placeholder="••••••••" required>
+          <button type="button" class="password-reveal" aria-label="按住查看密码" title="按住查看密码"
+                  onmousedown="revealPassword(this,true)" onmouseup="revealPassword(this,false)"
+                  onmouseleave="revealPassword(this,false)"
+                  ontouchstart="revealPassword(this,true)" ontouchend="revealPassword(this,false)"
+                  onfocus="this.blur()">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
         <input type="checkbox" id="rememberMe" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);">
@@ -1092,11 +1146,29 @@
       </div>
       <div class="form-group">
         <label class="form-label">密码（至少6位）</label>
-        <input class="form-input" id="authPasswordReg" type="password" placeholder="••••••••" required minlength="6">
+        <div class="password-wrap">
+          <input class="form-input" id="authPasswordReg" type="password" placeholder="••••••••" required minlength="6">
+          <button type="button" class="password-reveal" aria-label="按住查看密码" title="按住查看密码"
+                  onmousedown="revealPassword(this,true)" onmouseup="revealPassword(this,false)"
+                  onmouseleave="revealPassword(this,false)"
+                  ontouchstart="revealPassword(this,true)" ontouchend="revealPassword(this,false)"
+                  onfocus="this.blur()">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">确认密码</label>
-        <input class="form-input" id="authPasswordConfirm" type="password" placeholder="••••••••" required>
+        <div class="password-wrap">
+          <input class="form-input" id="authPasswordConfirm" type="password" placeholder="••••••••" required>
+          <button type="button" class="password-reveal" aria-label="按住查看密码" title="按住查看密码"
+                  onmousedown="revealPassword(this,true)" onmouseup="revealPassword(this,false)"
+                  onmouseleave="revealPassword(this,false)"
+                  ontouchstart="revealPassword(this,true)" ontouchend="revealPassword(this,false)"
+                  onfocus="this.blur()">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
       </div>
       <div class="form-error" id="authErrorReg"></div>
       <div class="modal-footer" style="margin-top:16px;">
@@ -2210,6 +2282,21 @@ function escapeHtml(str) {
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// ── Password reveal (hold to show) ──────────────────────────
+// 按住眼睛按钮 ⏷  密码变明文，松开 ⏴  恢复密文
+function revealPassword(btn, show) {
+  const wrap = btn.closest('.password-wrap');
+  if (!wrap) return;
+  const input = wrap.querySelector('input[type="password"], input[type="text"]');
+  const icon = btn.querySelector('i');
+  if (input) input.type = show ? 'text' : 'password';
+  btn.classList.toggle('revealing', !!show);
+  if (icon) {
+    icon.setAttribute('data-lucide', show ? 'eye-off' : 'eye');
+    if (window.lucide) lucide.createIcons();
+  }
 }
 
 // ── Keyboard ───────────────────────────────────────────────
