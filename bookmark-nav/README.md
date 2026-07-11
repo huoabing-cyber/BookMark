@@ -1,33 +1,37 @@
-# 书签导航站
+# 书签导航站（前端模块）
 
-前后端分离项目，需要分别启动前端和后端。
+## 启动说明已迁移
 
-## 快速启动
+完整启动、部署、API 文档见项目根 [`README.md`](../README.md)（含首次启动自动建库说明）。
 
-### 1. 启动后端
-```bash
-cd bookmark-nav-backend
-npm install
-npm start
+## 模块概要
+
+- 单页 SPA（`index.html`），所有路由 / 视图切换都在前端完成
+- 通过 fetch 调用同源 `/api/*` 完成登录和书签 CRUD
+- 直接使用 Google favicon 服务（`https://www.google.com/s2/favicons?domain=...`）加载每个书签的图标；失败时 `onerror="this.style.display='none'"` 隐藏
+
+## 数据契约
+
+完整接口契约见 `SPEC.md`，对应后端实现见 `../bookmark-nav-backend/server.js`。
+
+## 文件清单
+
 ```
-后端运行在 http://localhost:3001
-
-### 2. 启动前端
-直接用浏览器打开 `index.html` 文件即可
-（确保后端已启动）
-
-或者用简单 HTTP 服务器：
-```bash
-# Python 3
-cd bookmark-nav
-python -m http.server 3000
-
-# 或 Node.js (npx)
-npx serve .
+bookmark-nav/
+├── index.html        ← 单文件 SPA（HTML + CSS + JS 都在这里）
+├── README.md         ← 你正在读
+└── SPEC.md           ← 数据契约、状态机、UI 流程
 ```
-然后访问 http://localhost:3000
 
-## 功能说明
-- 支持邮箱登录/注册
-- 支持用户名登录（注册时可设置用户名）
-- 数据存储在后端数据库 `bookmarks.db`
+## 本地调试建议
+
+```bash
+# 只需要后端进程跑起来，前端用任意静态服务器都成
+cd ../bookmark-nav-backend && npm start
+
+# 另一个终端：
+cd ../bookmark-nav && python3 -m http.server 3000
+# 访问 http://localhost:3000/，前端 fetch 会发到 8080 的后端
+```
+
+注意跨域已被后端的 CORS 白名单兜底（见根 `README.md` "配置" 段）。
