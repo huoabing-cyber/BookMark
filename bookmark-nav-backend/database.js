@@ -4,6 +4,13 @@ const path = require('path');
 
 const dbPath = path.join(__dirname, 'bookmarks.db');
 
+// 防御性兜底：确保 db 所在目录存在。
+//   - 当前 dbPath 是 __dirname/bookmarks.db，dirname 即 __dirname，永远存在，no-op。
+//   - 未来若把 dbPath 改成 path.join(env.DB_DIR, 'bookmarks.db') 这类嵌套路径，
+//     或偶发重写 · 变 添加中间目录，本语句会自动创建目录，避免 fs.writeFileSync 抛 ENOENT。
+//   - recursive=true 保证多级缺失目录也会被创建，且对已存在的目录 no-op。
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
 let db = null;
 
 async function initDb() {
