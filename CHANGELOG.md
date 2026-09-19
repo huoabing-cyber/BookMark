@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2026-09-19
+
+### Changed — project layout flattened for Cloudflare dashboard deploy
+
+修复 Cloudflare Dashboard 通过 GitHub 集成部署时报错
+`Could not detect a directory containing static files` 的问题。
+
+把 `worker/` 子目录里的所有源文件平移到仓库根：
+
+| v2.0.0 | v2.0.1 |
+|---|---|
+| `worker/src/index.ts` | `src/index.ts` |
+| `worker/src/auth.ts` | `src/auth.ts` |
+| `worker/src/db.ts` | `db.ts` |
+| `worker/public/index.html` | `public/index.html` |
+| `worker/schema.sql` | `schema.sql` |
+| `worker/wrangler.toml` | `wrangler.toml` |
+| `worker/.dev.vars.example` | `.dev.vars.example` |
+| `worker/package.json` | `package.json` |
+| `worker/tsconfig.json` | `tsconfig.json` |
+
+`wrangler.toml` 内部路径不变（`main = "src/index.ts"`、`[assets] directory = "./public"`）
+—— 路径本来就是相对 wrangler.toml 所在目录，平移后仍然解析正确。
+
+### Why
+
+Cloudflare Dashboard 的 "Pages → Import from GitHub" 入口会先扫仓库根
+找静态文件目录（`./` / `./public` / `./dist` / `./build` 等），找不到就
+报 `Could not detect a directory containing static files` 错。
+
+但是当仓库根存在 `wrangler.toml` 时，Cloudflare 会自动切换到 **Workers
+runtime** 模式部署，整个 build output 直接来自 `wrangler.toml` 的 `[assets]`
+配置，不再走 Pages 的目录探测逻辑。
+
+把 `wrangler.toml` 放到根之后：
+- Cloudflare Dashboard → Workers & Pages → **Import from GitHub** 入口能识别
+- 本地 `wrangler dev` / `wrangler deploy` 也仍然正常（找当前目录的 wrangler.toml）
+
+### Migration
+
+老用户不需要任何代码改动 —— `wrangler.toml` 内部路径全部不变。
+只是：
+
+```bash
+# 老：cd worker && npm install
+# 新：npm install   （在仓库根）
+
+# 老：cd worker && npm run dev
+# 新：npm run dev   （在仓库根）
+```
+
+---
+
 ## [2.0.0] - 2026-09-19
 
 ### Changed — full platform migration to Cloudflare
