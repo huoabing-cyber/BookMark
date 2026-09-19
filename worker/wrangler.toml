@@ -1,0 +1,22 @@
+name = "bookmark-nav"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# D1 database binding.
+# After running `npm run db:create`, paste the printed database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "bookmark-nav-db"
+database_id = "REPLACE_AFTER_RUNNING_db:create"
+
+# Static assets (the single-file SPA). Wrangler serves files from ./public
+# automatically at the worker's URL; everything else falls through to the
+# Worker code, which then handles SPA fallback (returns index.html for
+# any non-/api/* path).
+[assets]
+directory = "./public"
+
+# Non-secret config. JWT_SECRET is set via `wrangler secret put JWT_SECRET`
+# and is NOT stored in this file.
+[vars]
+CORS_ALLOWED_TUNNEL_SUFFIXES = ".vicp.fun,.6655.la,.trycloudflare.com,.loca.lt,.ngrok-free.app,.cpolar.io,.natapp.net"

@@ -3,6 +3,8 @@
 *.sqlite
 *.sqlite3
 backups/
+bookmarks-export.json
+*.export.json
 
 # ============ 运行时状态 ============
 logs/
@@ -11,6 +13,12 @@ logs/
 
 # ============ Node 依赖（包体太大，传 package.json 即可） ============
 node_modules/
+
+# ============ Cloudflare Workers / D1 本地状态 ============
+.dev.vars
+.dev.vars.*
+.wrangler/
+dist/
 
 # ============ macOS / 编辑器 / 历史备份 ============
 .DS_Store

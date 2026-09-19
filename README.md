@@ -1,110 +1,159 @@
 # BookMark — 书签导航站
 
-一个跑在 **单一 Node.js 进程** 里的私人书签导航站：登录 + 卡片墙 + 自动拉取网站 favicon。
-前后端同端口部署（默认 `8080`），不需要 Nginx / 单独静态服务器。
+一个跑在 **Cloudflare Workers** 上的私人书签导航站：邮箱 / 用户名登录 + 卡片墙 +
+拖动排序 + 自动拉取网站 favicon。**前后端同一个 Worker**（Workers Static Assets
+托管前端 SPA，Hono 提供 JSON API），不需要 Nginx、不需要单独服务器、不需要内网穿透。
 
 ## ✨ 特性
 
-- 邮箱 / 用户名登录注册（bcrypt + JWT）
+- 邮箱 / 用户名登录注册（PBKDF2-HMAC-SHA256 + 自写 HS256 JWT）
 - 个人书签 CRUD，拖动排序
 - 自动拉取站点 favicon（前端直接走 Google favicon 服务，零后端处理）
-- 本地 SQLite-via-sql.js 持久化
-- 自带 macOS LaunchAgent 配置（开机自启 + 崩溃自拉活）
-- CORS 白名单为内网穿透服务优化（花生壳、6655.la、Cloudflare Tunnel 等）
+- Cloudflare D1 持久化（边缘 SQLite，单 Region 副本可全球读）
+- 离线模式（localStorage 完整保留，不依赖网络）
+- CORS 白名单兼容内网穿透后缀（花生壳 / 6655.la / Cloudflare Tunnel / ngrok / localtunnel / cpolar / natapp）
+- Workers Static Assets 单 Worker 部署 → 一个 URL 走完 API + 静态前端
 
-## 🚀 快速启动（**First Run 必读**）
+## 🚀 部署到 Cloudflare（一次性）
+
+需要：Cloudflare 账号 + Node 20+。
 
 ```bash
-# 1. 安装依赖（首次）
-cd bookmark-nav-backend
+cd worker
 npm install
 
-# 2. 启动服务（默认端口 8080）
-npm start
+# 1. 登录（首次会打开浏览器）
+npx wrangler login
+
+# 2. 创建 D1 数据库，记下输出的 ID
+npm run db:create
+
+# 3. 把上面那个 ID 粘到 wrangler.toml 的 database_id = "..."
+
+# 4. 生成 JWT 密钥
+openssl rand -base64 48
+
+# 5. 把密钥设到 Worker（会提示粘贴）
+npx wrangler secret put JWT_SECRET
+
+# 6. 初始化远程 D1 schema
+npm run db:init:remote
+
+# 7. 部署
+npm run deploy
 ```
 
-然后打开浏览器 → <http://localhost:8080/>。
+部署完成后，`wrangler deploy` 会输出一个 `*.workers.dev` URL，浏览器打开即可注册账号。
 
-### ⓘ First run 提示
+### 本地开发
 
-仓库里 **没有** `bookmarks.db`（账号数据刻意不进 git）。首次 `npm start` 时，`database.js` → `initDb()` 会按下面这套自动建空库：
+```bash
+cd worker
+cp .dev.vars.example .dev.vars
+# 编辑 .dev.vars，把 JWT_SECRET 替换成一个真实的随机串
 
-1. 检测文件不存在 (`fs.existsSync`)
-2. 在内存里 `new SQL.Database()` 创建空数据库
-3. 执行 `CREATE TABLE IF NOT EXISTS users / bookmarks ...` 应用 schema
-4. `saveDb()` 调 `fs.writeFileSync` 写出**带 schema 的空 `bookmarks.db`**
+npm install
+npm run db:init:local   # 初始化本地 D1
+npm run dev             # 起 Worker，默认 http://localhost:8787
+```
 
-接下来在浏览器里调 `POST /api/auth/register { email, password, username? }` 注册自己的账号即可。**没有任何种子账号** —— 不会泄漏前一个用户的任何数据。
+### 从老版本迁移
 
-> 想看这段逻辑的代码引用？见 `bookmark-nav-backend/database.js` 的 `initDb()` 函数。
+v1.x 的本地 `bookmarks.db` 已经无法直接复用（D1 schema 不同、密码哈希换了算法）。
+如果老 db 里还有书签想带走：
 
-## 🛡 隐私 / 已忽略
+```bash
+# 在仓库根目录执行（需要 Node 22.5+，使用内置 node:sqlite）
+node scripts/export-bookmarks.mjs
+# 会在仓库根生成 bookmarks-export.json
 
-以下刻意 **不** 进 git（见 `.gitignore`）：
-
-| 模式 | 内容 |
-|---|---|
-| `*.db` | 账号 / 书签数据 |
-| `backups/` | 历史数据库备份 |
-| `logs/` | 运行时日志 |
-| `node_modules/` | 包目录 |
-| `.env` / `*.pem` / `*.key` | 凭证 |
-
-分享这个仓库 **不会** 泄漏任何个人数据。
+# 然后去新的部署站点注册账号、登录
+# ⋮ 菜单 → 导入书签 → 选这个 JSON 文件
+```
 
 ## 📁 项目结构
 
 ```
 BookMark/
-├── bookmark-nav/                    # 前端 SPA
-│   ├── index.html                   # 单页 UI（登录 + 书签墙）
-│   ├── README.md                    # 模块说明
-│   └── SPEC.md                      # 产品需求详档
-├── bookmark-nav-backend/            # 后端
-│   ├── server.js                    # 路由 + 静态托管 + SPA fallback
-│   ├── auth.js                      # JWT / bcrypt 工具
-│   ├── database.js                  # sql.js 持久化 + 首次启动自动建库
-│   ├── package.json / package-lock.json
-│   └── bookmarks.db                 # ← 首次启动后自动生成（不进 git）
-├── com.bookmark.nav.backend.plist   # macOS LaunchAgent（可选）
-└── start-backend.sh                 # 应急启动脚本（脱离 launchd）
+├── worker/                          # Cloudflare Worker + 静态资产
+│   ├── src/
+│   │   ├── index.ts                 # Hono 路由 + SPA fallback
+│   │   ├── auth.ts                  # PBKDF2 密码哈希 + HS256 JWT
+│   │   └── db.ts                    # D1 查询层
+│   ├── public/
+│   │   └── index.html               # 单文件 SPA（前端）
+│   ├── schema.sql                   # D1 表结构
+│   ├── wrangler.toml                # Worker / D1 / Assets 配置
+│   ├── .dev.vars.example            # 本地密钥样例（不提交 .dev.vars）
+│   ├── tsconfig.json
+│   └── package.json
+├── scripts/
+│   └── export-bookmarks.mjs         # 老 sqlite → JSON 导出工具
+├── bookmarks-export.json            # ← 上面脚本生成的本地导出（gitignored）
+├── README.md
+├── CHANGELOG.md
+└── .gitignore
 ```
 
-详细规格见 [`bookmark-nav/SPEC.md`](bookmark-nav/SPEC.md)。
+## ⚙️ 配置
 
-## ⚙️ 配置（环境变量）
+### Secret（用 `wrangler secret put` 设置）
+
+| 变量 | 用途 |
+|---|---|
+| `JWT_SECRET` | HMAC-SHA256 JWT 签名密钥。至少 32 字节随机串。 |
+
+### Vars（`wrangler.toml` `[vars]` 段，可直接改）
 
 | 变量 | 默认值 | 用途 |
 |---|---|---|
-| `PORT` | `8080` | HTTP 端口 |
 | `CORS_ALLOWED_TUNNEL_SUFFIXES` | `.vicp.fun,.6655.la,.trycloudflare.com,.loca.lt,.ngrok-free.app,.cpolar.io,.natapp.net` | 逗号分隔，CORS 允许的 origin 后缀 |
-| `NODE_ENV` | 未设 | 设 `production` 启用 secure cookie |
+
+### 本地开发（`.dev.vars`）
+
+```ini
+JWT_SECRET="paste-the-output-of-openssl-rand-base64-48-here"
+```
 
 ## 🔌 API 速查
 
+全部走 `https://<your-worker>.workers.dev/api/*`，JSON in / JSON out。
+需要鉴权的接口统一要求 `Authorization: Bearer <JWT>`。
+
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | — | `{ email, password, username? }` |
-| `POST` | `/api/auth/login` | — | `{ email\|username, password }` → 返回 JWT |
-| `GET`  | `/api/auth/me` | JWT | 当前用户 |
-| `GET`  | `/api/bookmarks` | JWT | 列出当前用户书签 |
-| `POST` | `/api/bookmarks` | JWT | 新建 |
-| `PUT`  | `/api/bookmarks/:id` | JWT | 更新 |
-| `DELETE` | `/api/bookmarks/:id` | JWT | 删除 |
+| `POST` | `/api/auth/register` | — | `{ email, password, username? }` → `{ token, user }` |
+| `POST` | `/api/auth/login` | — | `{ email\|username, password }` → `{ token, user }` |
+| `GET`  | `/api/auth/me` | JWT | → `{ user: { id, email, username, ... } }` |
+| `GET`  | `/api/bookmarks` | JWT | → `{ bookmarks: [{ id, url, name, description, tags, ... }] }` |
+| `POST` | `/api/bookmarks` | JWT | `{ url, name, description?, tags? }` |
+| `PUT`  | `/api/bookmarks/:id` | JWT | `{ url?, name?, description?, tags? }` |
+| `DELETE` | `/api/bookmarks/:id` | JWT | — |
 | `POST` | `/api/bookmarks/reorder` | JWT | `{ orderedIds: [...] }` 拖动排序 |
 
-## 🍎 macOS 开机自启
+### 密码安全
 
-```bash
-cp com.bookmark.nav.backend.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.bookmark.nav.backend.plist
+- 算法：PBKDF2-HMAC-SHA256，**100,000 次迭代**，16 字节随机 salt，32 字节派生 key。
+- Salt 每次注册独立生成；同密码两次注册 hash 结果不同。
+- 验证使用常量时间比较。
+- 数据库三列分开存：`password_hash`、`salt`、`iterations`——以后想升级迭代次数只需加判断逻辑。
 
-# 停止
-launchctl unload ~/Library/LaunchAgents/com.bookmark.nav.backend.plist
-```
+### JWT
 
-plist 使用 `KeepAlive`，进程崩溃后会自动拉起。
+- 算法：HS256（HMAC-SHA256）。
+- Payload：`{ id, email, iat, exp }`，默认 7 天过期。
+- 通过 `Authorization: Bearer <token>` 头传递；前端存在 `localStorage`。
+- 密钥 `JWT_SECRET` 走 wrangler secret，不进 wrangler.toml、不进 git。
 
-## 🤝 贡献者上手
+## 🔄 故障排查
 
-仓库本身已经把"上手成本"压到最低 —— clone → `npm install` → `npm start`。不需要 seed 数据，不需要迁移，不需要环境变量即可跑起来。下一位协作者 clone 后就能直接开发。
+| 现象 | 检查 |
+|---|---|
+| 部署成功但所有 API 返回 500 | `wrangler tail` 看日志；常见是 D1 schema 没初始化：`npm run db:init:remote` |
+| `JWT malformed` / `登录已过期` | 多半是 `JWT_SECRET` 在本地和远程不一致；本地改 `.dev.vars`、远程改 `wrangler secret put JWT_SECRET` |
+| 前端页面拿到 404 而不是 SPA 路由 | 确认 `wrangler.toml` 的 `[assets] directory = "./public"`；确认 `public/index.html` 存在 |
+| CORS 报错 | `CORS_ALLOWED_TUNNEL_SUFFIXES` 里加新 origin 后缀，wrangler 自动 reload vars |
+
+## 📜 License
+
+个人项目，按需自取。
