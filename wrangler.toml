@@ -1,9 +1,14 @@
-name = "bookmark-nav"
+name = "bookmark"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
 # D1 database binding.
-# After running `npm run db:create`, paste the printed database_id below.
+#
+# After running `npm run db:create` (or creating bookmark-nav-db via the
+# Cloudflare dashboard under Workers & Pages → D1), paste the printed
+# database_id (a UUID like `a1b2c3d4-e5f6-...`) below. Without a real ID
+# here the deploy step fails with:
+#   binding DB of type d1 must have a valid `database_id` specified
 [[d1_databases]]
 binding = "DB"
 database_name = "bookmark-nav-db"
