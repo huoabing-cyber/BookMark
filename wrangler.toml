@@ -12,7 +12,7 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "bookmark-nav-db"
-database_id = "REPLACE_AFTER_RUNNING_db:create"
+database_id = "100efabc-72e1-43e1-a596-cc84f91dd085"
 
 # Static assets (the single-file SPA). Wrangler serves files from ./public
 # automatically at the worker's URL; everything else falls through to the
